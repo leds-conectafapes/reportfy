@@ -1,0 +1,54 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.backends.legacy:build"
+
+[project]
+name = "reportfy"
+version = "0.1.0"
+description = "Python library for GitHub project management reporting, designed for GitHub Actions"
+readme = "README.md"
+license = { text = "MIT" }
+requires-python = ">=3.10"
+authors = [
+    { name = "LEDS Conectafapes", email = "leds@example.com" }
+]
+keywords = ["github", "reporting", "agile", "monte-carlo", "discord", "gemini"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Software Development :: Libraries",
+]
+
+dependencies = [
+    "airbyte>=0.24.0",
+    "pandas>=2.2.0",
+    "numpy>=1.26.0",
+    "matplotlib>=3.9.0",
+    "networkx>=3.4.0",
+    "community>=1.0.0b1",
+    "python-dotenv>=1.0.0",
+    "discord.py>=2.4.0",
+    "google-generativeai>=0.8.0",
+    "scipy>=1.13.0",
+    "tqdm>=4.66.0",
+    "duckdb>=1.0.0",
+    "requests>=2.32.0",
+    "pydantic>=2.7.0",
+]
+
+[project.scripts]
+reportfy = "reportfy.cli:main"
+
+[project.urls]
+Homepage = "https://github.com/leds-conectafapes/reportfy"
+Repository = "https://github.com/leds-conectafapes/reportfy"
+Issues = "https://github.com/leds-conectafapes/reportfy/issues"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["reportfy*"]

@@ -1,0 +1,31 @@
+name: Generate Reports
+
+on:
+  schedule:
+    - cron: "0 8 * * 1"   # Every Monday at 08:00 UTC
+  workflow_dispatch:        # Allow manual trigger
+
+jobs:
+  generate:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Run Reportfy
+        uses: leds-conectafapes/reportfy@main
+        with:
+          github_token: ${{ secrets.TOKEN }}
+          repository: ${{ secrets.REPOSITORY }}
+          mistral_api_key: ${{ secrets.MISTRAL_API_KEY }}
+          mistral_model: "mistral-large-latest"
+          discord_bot_token: ${{ secrets.DISCORD_BOT_TOKEN }}
+          discord_leadership_channel: ${{ secrets.DISCORD_LEADERSHIP_CHANNEL }}
+          enable_ai_summaries: "true"
+          enable_discord_notifications: "true"
+          commit_reports: "true"

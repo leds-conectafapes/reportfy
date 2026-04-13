@@ -1,0 +1,109 @@
+name: "Reportfy"
+description: "Generate GitHub project management reports with charts, Monte Carlo simulations, AI summaries (Mistral), and Discord notifications."
+author: "leds-conectafapes"
+
+branding:
+  icon: "bar-chart-2"
+  color: "blue"
+
+inputs:
+  github_token:
+    description: "GitHub Personal Access Token with repo and org:read permissions"
+    required: true
+  repository:
+    description: "Target repository in owner/repo format (e.g. leds-conectafapes/planner)"
+    required: true
+  report_output_dir:
+    description: "Directory where reports will be saved"
+    required: false
+    default: "./report"
+  monte_carlo_simulations:
+    description: "Number of Monte Carlo simulations to run"
+    required: false
+    default: "1000"
+  mistral_api_key:
+    description: "Mistral API key for AI-powered summaries"
+    required: false
+    default: ""
+  mistral_model:
+    description: "Mistral model to use (e.g. mistral-large-latest, mistral-small-latest)"
+    required: false
+    default: "mistral-large-latest"
+  discord_bot_token:
+    description: "Discord bot token for sending notifications"
+    required: false
+    default: ""
+  discord_leadership_channel:
+    description: "Discord channel name for leadership notifications"
+    required: false
+    default: ""
+  developers_config:
+    description: "Path to developers.json mapping github_id to discord_id"
+    required: false
+    default: "./developers.json"
+  enable_organization_report:
+    description: "Enable organization-level dashboard"
+    required: false
+    default: "true"
+  enable_repository_report:
+    description: "Enable per-repository dashboard"
+    required: false
+    default: "true"
+  enable_developer_report:
+    description: "Enable per-developer dashboard"
+    required: false
+    default: "true"
+  enable_team_report:
+    description: "Enable per-team dashboard"
+    required: false
+    default: "true"
+  enable_collaboration_report:
+    description: "Enable collaboration graph analysis"
+    required: false
+    default: "true"
+  enable_discord_notifications:
+    description: "Send reports and summaries via Discord"
+    required: false
+    default: "false"
+  enable_ai_summaries:
+    description: "Generate AI-powered summaries using Mistral"
+    required: false
+    default: "false"
+  commit_reports:
+    description: "Commit generated reports back to the repository"
+    required: false
+    default: "true"
+
+outputs:
+  organization_report:
+    description: "Path to the generated organization stats markdown file"
+  repository_report:
+    description: "Path to the generated repository stats markdown file"
+  developer_report:
+    description: "Path to the generated developer stats markdown file"
+  team_report:
+    description: "Path to the generated team stats markdown file"
+  collaboration_report:
+    description: "Path to the generated collaboration report markdown file"
+
+runs:
+  using: "docker"
+  image: "Dockerfile"
+  env:
+    TOKEN: ${{ inputs.github_token }}
+    REPOSITORY: ${{ inputs.repository }}
+    REPORT_OUTPUT_DIR: ${{ inputs.report_output_dir }}
+    MONTE_CARLO_SIMULATIONS: ${{ inputs.monte_carlo_simulations }}
+    MISTRAL_API_KEY: ${{ inputs.mistral_api_key }}
+    MISTRAL_MODEL: ${{ inputs.mistral_model }}
+    DISCORD_BOT_TOKEN: ${{ inputs.discord_bot_token }}
+    DISCORD_LEADERSHIP_CHANNEL: ${{ inputs.discord_leadership_channel }}
+    DEVELOPERS_CONFIG: ${{ inputs.developers_config }}
+    ENABLE_ORGANIZATION_REPORT: ${{ inputs.enable_organization_report }}
+    ENABLE_REPOSITORY_REPORT: ${{ inputs.enable_repository_report }}
+    ENABLE_DEVELOPER_REPORT: ${{ inputs.enable_developer_report }}
+    ENABLE_TEAM_REPORT: ${{ inputs.enable_team_report }}
+    ENABLE_COLLABORATION_REPORT: ${{ inputs.enable_collaboration_report }}
+    ENABLE_DISCORD_NOTIFICATIONS: ${{ inputs.enable_discord_notifications }}
+    ENABLE_AI_SUMMARIES: ${{ inputs.enable_ai_summaries }}
+    COMMIT_REPORTS: ${{ inputs.commit_reports }}
