@@ -65,9 +65,11 @@ class BaseController(ABC):
         filepaths: list[str],
         prompt_type,
         section_title: str = "Análise por IA",
+        *,
+        raw: bool = False,
     ) -> str:
         """
-        Generate an AI summary section using Mistral, if enabled.
+        Generate an AI summary using Mistral, if enabled.
 
         Silently returns an empty string when AI is disabled, the API key is
         missing, or an API error occurs — so callers never need a try/except.
@@ -75,11 +77,15 @@ class BaseController(ABC):
         Args:
             filepaths: Markdown files to read and summarise.
             prompt_type: ``PromptType`` enum value selecting the prompt template.
-            section_title: Heading for the generated markdown section.
+            section_title: Heading used when ``raw=False``.
+            raw: When ``True``, return only the AI-generated text without any
+                 markdown section heading or separator (useful when the caller
+                 controls the surrounding document structure).
 
         Returns:
-            A markdown string with a section heading + AI-generated body,
-            or ``""`` if AI is not available / an error occurred.
+            - ``raw=False`` (default): markdown string ``\\n\\n---\\n\\n## {title}\\n\\n{body}``
+            - ``raw=True``: plain AI-generated text, stripped.
+            - ``""`` if AI is not available or an error occurred.
         """
         if not self.config.has_ai():
             return ""
@@ -96,7 +102,14 @@ class BaseController(ABC):
             )
             summary = summarizer.generate_summary()
             print(f"  [AI] {section_title} generated ({len(summary)} chars).")
-            return f"\n\n---\n\n## {section_title}\n\n> _Gerado por IA (Mistral)_\n\n{summary}\n"
+
+            if raw:
+                return summary
+
+            return (
+                f"\n\n---\n\n## {section_title}\n\n"
+                f"> _Gerado por IA (Mistral)_\n\n{summary}\n"
+            )
         except FileNotFoundError as exc:
             print(f"  [AI] Skipping — file not found: {exc}")
             return ""

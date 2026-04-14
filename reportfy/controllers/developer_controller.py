@@ -66,16 +66,18 @@ class DeveloperController(BaseController):
 
     def run_ai(self) -> None:
         """
-        Phase 2: append Mistral AI sections to every developer file on disk.
+        Phase 2: generate Mistral AI feedback files for every developer.
 
         Must be called **after** ``run()``.  Silently skips if AI is not
         configured (``config.has_ai() == False``).
 
-        Appends two sections per developer:
+        Creates a separate ``{login}_feedback.md`` file per developer containing:
           - **Análise de Desempenho** (``PromptType.DESENVOLVEDOR``) — productivity
             feedback: consistency, delivery impact, points of attention.
           - **Análise de Competências** (``PromptType.COMPETENCIA``) — competency
             profile: technical skills, soft skills, reliability, future allocation.
+
+        The main ``{login}.md`` stats file is left untouched.
         """
         if not self.config.has_ai():
             return
@@ -96,15 +98,47 @@ class DeveloperController(BaseController):
             if not os.path.exists(dev_path):
                 continue
             print(f"  [AI] {idx}/{total} — {stats.login}")
-            # Performance feedback
-            self._append_ai_to_file(
-                dev_path,
-                PromptType.DESENVOLVEDOR,
-                "Análise de Desempenho",
-            )
-            # Competency profile
-            self._append_ai_to_file(
-                dev_path,
-                PromptType.COMPETENCIA,
-                "Análise de Competências",
-            )
+            self._write_developer_feedback(dev_path, stats.login)
+
+    def _write_developer_feedback(self, stats_path: str, login: str) -> None:
+        """
+        Generate and save ``{login}_feedback.md`` with both AI analyses.
+
+        Args:
+            stats_path: Path to the developer's stats markdown file (used as AI input).
+            login: GitHub login used to name the output file.
+        """
+        from reportfy.ai.prompts import PromptType
+
+        performance = self._generate_ai_summary(
+            [stats_path], PromptType.DESENVOLVEDOR, "Análise de Desempenho", raw=True
+        )
+        competency = self._generate_ai_summary(
+            [stats_path], PromptType.COMPETENCIA, "Perfil de Competências", raw=True
+        )
+        evolution = self._generate_ai_summary(
+            [stats_path], PromptType.COMPETENCIA_EVOLUTIVA, "Evolução Mensal", raw=True
+        )
+
+        if not any([performance, competency, evolution]):
+            return
+
+        feedback_path = os.path.join(
+            os.path.dirname(stats_path), f"{login}_feedback.md"
+        )
+        with open(feedback_path, "w", encoding="utf-8") as f:
+            f.write(f"# Feedback — {login}\n\n")
+            f.write(f"> _Gerado por IA (Mistral) — modelo: {self.config.mistral_model}_\n\n")
+            if performance:
+                f.write("---\n\n## Análise de Desempenho\n\n")
+                f.write(performance)
+                f.write("\n\n")
+            if evolution:
+                f.write("---\n\n")
+                f.write(evolution)
+                f.write("\n\n")
+            if competency:
+                f.write("---\n\n## Perfil de Competências\n\n")
+                f.write(competency)
+                f.write("\n")
+        print(f"  [AI] Feedback salvo → {feedback_path}")

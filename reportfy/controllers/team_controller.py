@@ -75,16 +75,21 @@ class TeamController(BaseController):
 
     def run_ai(self) -> None:
         """
-        Phase 2: append Mistral AI sections to every team file on disk.
+        Phase 2: generate Mistral AI feedback files for every team.
 
         Must be called **after** ``run()``.  Silently skips if AI is not
         configured (``config.has_ai() == False``).
 
-        Appends two types of analysis:
-          - **Resumo Semanal por IA** (``PromptType.EQUIPE_SEMANAL``) — per-team
-            weekly summary with highlights, deliveries, and comparative indicators.
-          - **Resumo Executivo Semanal** (``PromptType.EQUIPES_GERAL_SEMANAL``) —
-            appended to the consolidated ``teams.md``, synthesising all teams.
+        Creates a separate ``{slug}_feedback.md`` per team containing:
+          - **Resumo Semanal** (``PromptType.EQUIPE_SEMANAL``) — weekly highlights,
+            deliveries, and comparative indicators.
+          - **Maturidade e Competência** (``PromptType.EQUIPE_COMPETENCIA``) — team
+            maturity assessment with monthly evolution table and development plan.
+
+        Also appends a consolidated executive summary to ``teams.md``
+        (``PromptType.EQUIPES_GERAL_SEMANAL``).
+
+        The main ``{slug}.md`` stats files are left untouched.
         """
         if not self.config.has_ai():
             return
@@ -100,19 +105,14 @@ class TeamController(BaseController):
         total = len(all_stats)
         print(f"  [AI] Gerando análises para {total} equipes…")
 
-        # Per-team weekly summary
         for idx, stats in enumerate(all_stats, 1):
             team_path = os.path.join(teams_dir, f"{stats.team_slug}.md")
             if not os.path.exists(team_path):
                 continue
             print(f"  [AI] {idx}/{total} — equipe {stats.team_slug}")
-            self._append_ai_to_file(
-                team_path,
-                PromptType.EQUIPE_SEMANAL,
-                f"Resumo Semanal por IA — {stats.team_slug}",
-            )
+            self._write_team_feedback(team_path, stats.team_slug)
 
-        # Consolidated executive summary on the teams index
+        # Consolidated executive summary appended to teams index
         if self._teams_md_path and os.path.exists(self._teams_md_path):
             print("  [AI] Gerando resumo executivo consolidado de todas as equipes…")
             self._append_ai_to_file(
@@ -120,3 +120,41 @@ class TeamController(BaseController):
                 PromptType.EQUIPES_GERAL_SEMANAL,
                 "Resumo Executivo Semanal — Todas as Equipes",
             )
+
+    def _write_team_feedback(self, stats_path: str, team_slug: str) -> None:
+        """
+        Generate and save ``{slug}_feedback.md`` with both AI analyses.
+
+        Args:
+            stats_path: Path to the team's stats markdown file (used as AI input).
+            team_slug: Team slug used to name the output file.
+        """
+        from reportfy.ai.prompts import PromptType
+
+        weekly = self._generate_ai_summary(
+            [stats_path], PromptType.EQUIPE_SEMANAL,
+            f"Resumo Semanal — {team_slug}", raw=True
+        )
+        competency = self._generate_ai_summary(
+            [stats_path], PromptType.EQUIPE_COMPETENCIA,
+            f"Maturidade e Competência — {team_slug}", raw=True
+        )
+
+        if not weekly and not competency:
+            return
+
+        feedback_path = os.path.join(
+            os.path.dirname(stats_path), f"{team_slug}_feedback.md"
+        )
+        with open(feedback_path, "w", encoding="utf-8") as f:
+            f.write(f"# Feedback — Equipe {team_slug}\n\n")
+            f.write(f"> _Gerado por IA (Mistral) — modelo: {self.config.mistral_model}_\n\n")
+            if weekly:
+                f.write("---\n\n## Resumo Semanal\n\n")
+                f.write(weekly)
+                f.write("\n\n")
+            if competency:
+                f.write("---\n\n")
+                f.write(competency)
+                f.write("\n")
+        print(f"  [AI] Feedback salvo → {feedback_path}")
