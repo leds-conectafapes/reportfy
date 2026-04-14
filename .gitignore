@@ -10,6 +10,7 @@ build/
 
 # Virtual environments
 .venv/
+.venv-source-github/
 venv/
 env/
 
@@ -37,3 +38,10 @@ Thumbs.db
 .pytest_cache/
 .coverage
 htmlcov/
+.hypothesis/
+
+# Cloned repos
+leds-conectafapes-management-dashboard/
+
+# Local dev scripts
+run_ai_feedback.py
