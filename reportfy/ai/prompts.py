@@ -12,6 +12,7 @@ class PromptType(Enum):
     EQUIPE_SEMANAL = "EQUIPE_SEMANAL"
     COMPETENCIA = "COMPETENCIA"
     EQUIPES_GERAL_SEMANAL = "EQUIPES_GERAL_SEMANAL"
+    COLABORACAO = "COLABORACAO"
 
 
 PROMPTS: dict[PromptType, str] = {
@@ -68,5 +69,19 @@ PROMPTS: dict[PromptType, str] = {
         "- [Resumo]\n\n"
         "Sem blocos de código. Markdown puro.\n"
         "Considere apenas entregas entre **data_inicial** e **data_final**.\n"
+    ),
+    PromptType.COLABORACAO: (
+        "Você é um especialista em dinâmica de equipes e engenharia de software.\n\n"
+        "Com base nas métricas de rede de colaboração fornecidas abaixo (centralidade, "
+        "comunidades, coeficiente de agrupamento, distância média, eficiência global), "
+        "gere uma análise interpretativa profissional em Markdown.\n\n"
+        "A análise deve:\n"
+        "- Identificar os desenvolvedores-chave (hubs) e explicar o impacto deles na rede\n"
+        "- Avaliar a saúde da rede: está bem conectada ou fragmentada?\n"
+        "- Interpretar as comunidades detectadas: há silos? há integração entre equipes?\n"
+        "- Apontar riscos: dependência excessiva de um dev, grupos isolados, gargalos\n"
+        "- Sugerir ações concretas para melhorar a colaboração\n"
+        "- Usar dados quantitativos (scores, % de closure, throughput) sempre que disponíveis\n\n"
+        "Tom: técnico, objetivo, construtivo. Sem blocos de código. Markdown puro.\n\n"
     ),
 }

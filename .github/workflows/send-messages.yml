@@ -48,9 +48,46 @@ jobs:
           CompetenceMessageSender(config).send()
           EOF
 
-  project-message:
+  team-messages:
     runs-on: ubuntu-latest
     needs: developer-messages
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt && pip install -e .
+
+      - name: Send team weekly summaries and executive summary
+        env:
+          MISTRAL_API_KEY: ${{ secrets.MISTRAL_API_KEY }}
+          DISCORD_BOT_TOKEN: ${{ secrets.DISCORD_BOT_TOKEN }}
+          DISCORD_LEADERSHIP_CHANNEL: ${{ secrets.DISCORD_LEADERSHIP_CHANNEL }}
+        run: |
+          python - <<'EOF'
+          from reportfy.core.config import ReportConfig
+          from reportfy.notifications.senders import TeamWeeklySender, TeamsGeneralSender
+
+          config = ReportConfig(
+              github_token="",
+              repository="",
+              mistral_api_key="${{ secrets.MISTRAL_API_KEY }}",
+              discord_bot_token="${{ secrets.DISCORD_BOT_TOKEN }}",
+              discord_leadership_channel="${{ secrets.DISCORD_LEADERSHIP_CHANNEL }}",
+              enable_ai_summaries=True,
+              enable_discord_notifications=True,
+          )
+          TeamWeeklySender(config).send()
+          TeamsGeneralSender(config).send()
+          EOF
+
+  project-message:
+    runs-on: ubuntu-latest
+    needs: [developer-messages, team-messages]
     steps:
       - uses: actions/checkout@v4
 

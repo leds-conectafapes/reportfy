@@ -1,0 +1,87 @@
+name: Publish Package
+
+on:
+  push:
+    tags:
+      - "v*.*.*"        # triggers on version tags e.g. v0.1.0
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version to publish (e.g. 0.1.0)"
+        required: true
+
+permissions:
+  contents: write       # create GitHub Release
+  packages: write       # push to GitHub Packages
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install build tools
+        run: pip install --upgrade build twine
+
+      # ── Build the distribution ─────────────────────────────────────
+      - name: Build sdist and wheel
+        run: python -m build
+
+      # ── Publish to GitHub Packages (PyPI-compatible registry) ─────
+      - name: Publish to GitHub Packages
+        env:
+          TWINE_USERNAME: __token__
+          TWINE_PASSWORD: ${{ secrets.GITHUB_TOKEN }}
+          TWINE_REPOSITORY_URL: https://maven.pkg.github.com/${{ github.repository_owner }}/reportfy
+        run: |
+          twine upload --repository-url https://maven.pkg.github.com/${{ github.repository_owner }}/reportfy \
+            --username __token__ \
+            --password ${{ secrets.GITHUB_TOKEN }} \
+            dist/*
+
+      # ── Also publish to PyPI if secret is set ─────────────────────
+      - name: Publish to PyPI
+        if: ${{ secrets.PYPI_API_TOKEN != '' }}
+        env:
+          TWINE_USERNAME: __token__
+          TWINE_PASSWORD: ${{ secrets.PYPI_API_TOKEN }}
+        run: twine upload dist/*
+
+      # ── Create GitHub Release with artifacts ──────────────────────
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        if: startsWith(github.ref, 'refs/tags/')
+        with:
+          files: dist/*
+          generate_release_notes: true
+          body: |
+            ## Reportfy ${{ github.ref_name }}
+
+            Python library for GitHub project management reporting.
+
+            ### Installation
+
+            ```bash
+            # From PyPI
+            pip install reportfy==${{ github.ref_name }}
+
+            # From GitHub Packages
+            pip install reportfy \
+              --index-url https://maven.pkg.github.com/${{ github.repository_owner }}/reportfy \
+              --extra-index-url https://pypi.org/simple
+            ```
+
+            ### Usage as GitHub Action
+
+            ```yaml
+            - uses: leds-conectafapes/reportfy@${{ github.ref_name }}
+              with:
+                token: ${{ secrets.GITHUB_TOKEN }}
+                repository: "owner/repo"
+            ```

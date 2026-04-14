@@ -3,10 +3,8 @@ from __future__ import annotations
 
 import json
 import os
-import time
 
 from reportfy.ai.prompts import PromptType
-from reportfy.ai.summarizer import MarkdownSummarizer
 from reportfy.notifications.senders.base_sender import BaseNotificationSender
 
 
@@ -21,7 +19,7 @@ class CompetenceMessageSender(BaseNotificationSender):
     This sender writes files — it does not post to Discord.
     """
 
-    _DELAY_BETWEEN_DEVS = 10  # seconds — avoids Mistral rate limits
+    _AI_DELAY: float = 10  # seconds between devs — avoids Mistral rate limits
 
     def send(self) -> None:
         """Execute the competency assessment generation pipeline."""
@@ -46,22 +44,18 @@ class CompetenceMessageSender(BaseNotificationSender):
                 print(f"[CompetenceMessageSender] Report not found for {github_id}")
                 continue
 
-            summarizer = MarkdownSummarizer(
-                api_key=self.config.mistral_api_key,
-                filepaths=[report_path],
-                prompt_type=PromptType.COMPETENCIA,
-                model=self.config.mistral_model,
+            assessment = self._ai_summary(
+                [report_path], PromptType.COMPETENCIA, delay=self._AI_DELAY
             )
-            assessment = summarizer.generate_summary()
+            if not assessment:
+                continue
 
             output_path = os.path.join(
                 self.config.output_dir, "developers", f"{github_id}_competence.md"
             )
             with open(output_path, "w", encoding="utf-8") as f:
                 f.write(assessment)
-
             print(f"[CompetenceMessageSender] Assessment saved → {output_path}")
-            time.sleep(self._DELAY_BETWEEN_DEVS)
 
     def _load_developers(self) -> list[dict]:
         """Load the developers configuration JSON file."""

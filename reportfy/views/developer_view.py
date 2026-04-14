@@ -71,7 +71,7 @@ class DeveloperView(BaseView):
             md += "| Período | Prometido | Realizado |\n"
             md += "|---------|-----------|----------|\n"
             for period, row in stats.throughput_df.iterrows():
-                p_str = period.strftime("%Y-%m-%d") if hasattr(period, "strftime") else str(period)
+                p_str = self._format_period(period)
                 md += f"| {p_str} | {int(row['Prometido (Criadas)'])} | {int(row['Realizado (Fechadas)'])} |\n"
             md += "\n"
             if p1:
@@ -121,7 +121,7 @@ class DeveloperView(BaseView):
         ax.set_title(f"Prometido vs Realizado — {stats.login}")
         ax.set_ylabel("Issues")
         ax.set_xticklabels(
-            [d.strftime("%Y-%m-%d") if hasattr(d, "strftime") else str(d) for d in df.index],
+            [self._format_period(d) for d in df.index],
             rotation=30,
             ha="right",
         )

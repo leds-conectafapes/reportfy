@@ -7,6 +7,7 @@ from dataclasses import dataclass, field
 import pandas as pd
 
 from reportfy.models.issue import IssueModel
+from reportfy.utils.periods import apply_half_month
 
 
 @dataclass
@@ -117,7 +118,7 @@ class TeamModel:
         closed = sum(1 for i in team_issues if i.is_closed)
 
         contrib = self._member_contributions(members, team_issues)
-        biweekly = self._throughput(team_issues, "2W")
+        biweekly = self._biweekly_throughput(team_issues)
         monthly = self._throughput(team_issues, "M")
 
         return TeamStats(
@@ -154,8 +155,34 @@ class TeamModel:
         return pd.DataFrame(list(data.values()))
 
     @staticmethod
+    def _biweekly_throughput(issues: list[IssueModel]) -> pd.DataFrame:
+        """
+        Build a half-month throughput DataFrame.
+
+        Periods are always either the 1st or the 16th of each calendar month,
+        ensuring consistent and human-readable period labels.
+        """
+        closed = [
+            {"closed_at": i.closed_at}
+            for i in issues
+            if i.is_closed and i.closed_at is not None
+        ]
+        if not closed:
+            return pd.DataFrame(columns=["period", "delivered"])
+
+        df = pd.DataFrame(closed)
+        df["closed_at"] = pd.to_datetime(df["closed_at"])
+        df["period"] = apply_half_month(df["closed_at"])
+        result = df.groupby("period").size().reset_index(name="delivered")
+
+        result["moving_avg"] = (
+            result["delivered"].rolling(window=3, min_periods=1).mean().round(2)
+        )
+        return result.sort_values("period")
+
+    @staticmethod
     def _throughput(issues: list[IssueModel], freq: str) -> pd.DataFrame:
-        """Build a throughput DataFrame (delivered issues per period)."""
+        """Build a monthly throughput DataFrame (delivered issues per period)."""
         closed = [
             {"closed_at": i.closed_at}
             for i in issues

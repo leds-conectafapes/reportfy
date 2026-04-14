@@ -9,6 +9,7 @@ import numpy as np
 import pandas as pd
 
 from reportfy.models.issue import IssueModel
+from reportfy.utils.periods import apply_half_month
 
 
 @dataclass
@@ -90,7 +91,7 @@ class OrganizationModel:
         """
         df = self._to_df().copy()
         df["created_at"] = pd.to_datetime(df["created_at"])
-        df["period"] = df["created_at"].dt.to_period("2W").apply(lambda r: r.start_time)
+        df["period"] = apply_half_month(df["created_at"])
 
         grouped = df.groupby(["period", "state"]).size().unstack(fill_value=0)
         for col in ("open", "closed"):

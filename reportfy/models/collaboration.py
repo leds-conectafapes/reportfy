@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from datetime import datetime
 from typing import Optional
 
 import networkx as nx
@@ -60,6 +61,58 @@ class CollaborationModel:
         self.graph: nx.DiGraph = nx.DiGraph()
         self.undirected: nx.Graph = nx.Graph()
         self._built = False
+
+    # ------------------------------------------------------------------
+    # Factory helpers for temporal slicing
+    # ------------------------------------------------------------------
+
+    @classmethod
+    def for_period(
+        cls,
+        issues: list[IssueModel],
+        start: datetime,
+        end: datetime,
+    ) -> "CollaborationModel":
+        """Return a CollaborationModel containing only issues within [start, end)."""
+        filtered = [
+            i for i in issues
+            if i.created_at is not None and start <= i.created_at < end
+        ]
+        return cls(filtered)
+
+    @classmethod
+    def months_with_issues(cls, issues: list[IssueModel]) -> list[tuple[int, int]]:
+        """Return sorted list of (year, month) tuples that have at least one issue."""
+        seen: set[tuple[int, int]] = set()
+        for i in issues:
+            if i.created_at is not None:
+                seen.add((i.created_at.year, i.created_at.month))
+        return sorted(seen)
+
+    @classmethod
+    def weeks_in_month(cls, year: int, month: int) -> list[tuple[datetime, datetime]]:
+        """
+        Return ISO-week windows that overlap with the given calendar month.
+
+        Each tuple is (week_start Monday, week_end exclusive Monday).
+        """
+        import pandas as pd
+
+        month_start = pd.Timestamp(year=year, month=month, day=1)
+        month_end = (month_start + pd.offsets.MonthEnd(1)).normalize() + pd.Timedelta(days=1)
+
+        # Walk week by week
+        windows: list[tuple[datetime, datetime]] = []
+        cursor = month_start - pd.Timedelta(days=month_start.weekday())  # Monday of first week
+        while cursor < month_end:
+            week_end = cursor + pd.Timedelta(weeks=1)
+            # Only include weeks that have days within the month
+            overlap_start = max(cursor, month_start)
+            overlap_end = min(week_end, month_end)
+            if overlap_start < overlap_end:
+                windows.append((cursor.to_pydatetime(), week_end.to_pydatetime()))
+            cursor = week_end
+        return windows
 
     # ------------------------------------------------------------------
     # Graph construction

@@ -3,11 +3,8 @@ from __future__ import annotations
 
 import json
 import os
-import time
 
 from reportfy.ai.prompts import PromptType
-from reportfy.ai.summarizer import MarkdownSummarizer
-from reportfy.notifications.discord_client import DiscordClient
 from reportfy.notifications.senders.base_sender import BaseNotificationSender
 
 
@@ -28,7 +25,7 @@ class DeveloperMessageSender(BaseNotificationSender):
         ]
     """
 
-    _DELAY_BETWEEN_DEVS = 10  # seconds — avoids Mistral rate limits
+    _AI_DELAY: float = 10  # seconds between devs — avoids Mistral rate limits
 
     def send(self) -> None:
         """Execute the developer feedback notification pipeline."""
@@ -50,42 +47,22 @@ class DeveloperMessageSender(BaseNotificationSender):
                 print(f"[DeveloperMessageSender] Report not found for {github_id}")
                 continue
 
-            # AI summary
-            summary = ""
-            if self.config.has_ai():
-                summarizer = MarkdownSummarizer(
-                    api_key=self.config.mistral_api_key,
-                    filepaths=[report_path],
-                    prompt_type=PromptType.DESENVOLVEDOR,
-                    model=self.config.mistral_model,
-                )
-                summary = summarizer.generate_summary()
+            summary = self._ai_summary(
+                [report_path], PromptType.DESENVOLVEDOR, delay=self._AI_DELAY
+            )
+            if summary:
+                self._discord_send(message=summary, user_id=discord_id)
 
-            # DM text
-            if summary and self.config.has_discord():
-                DiscordClient(
-                    token=self.config.discord_bot_token,
-                    user_id=discord_id,
-                    message=summary,
-                )
-
-            # DM charts
             graphs_dir = os.path.join(self.config.output_dir, "developers", "graphs")
             for chart_name in (
                 f"{github_id}_prometido_realizado.png",
                 f"{github_id}_throughput.png",
             ):
                 chart_path = os.path.join(graphs_dir, chart_name)
-                if os.path.exists(chart_path) and self.config.has_discord():
-                    DiscordClient(
-                        token=self.config.discord_bot_token,
-                        user_id=discord_id,
-                        image_path=chart_path,
-                        message="",
-                    )
+                if os.path.exists(chart_path):
+                    self._discord_send(image_path=chart_path, user_id=discord_id)
 
             print(f"[DeveloperMessageSender] Sent to {github_id} (discord: {discord_id})")
-            time.sleep(self._DELAY_BETWEEN_DEVS)
 
     def _load_developers(self) -> list[dict]:
         """Load the developers configuration JSON file."""

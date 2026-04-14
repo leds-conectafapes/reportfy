@@ -88,7 +88,7 @@ class TeamView(BaseView):
             md += "| Período | Entregue | Média Móvel |\n"
             md += "|---------|----------|-------------|\n"
             for _, row in stats.biweekly_df.iterrows():
-                p_str = row["period"].strftime("%Y-%m-%d") if hasattr(row["period"], "strftime") else str(row["period"])
+                p_str = self._format_period(row["period"])
                 md += f"| {p_str} | {int(row['delivered'])} | {row['moving_avg']} |\n"
             md += "\n"
         if biweekly_path:
@@ -144,7 +144,7 @@ class TeamView(BaseView):
             return ""
         x = range(len(df))
         labels = [
-            r["period"].strftime("%Y-%m-%d") if hasattr(r["period"], "strftime") else str(r["period"])
+            self._format_period(r["period"])
             for _, r in df.iterrows()
         ]
         plt.figure(figsize=(12, 4))

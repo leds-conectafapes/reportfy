@@ -32,7 +32,17 @@ class ReportController(BaseController):
 
     def run(self) -> str:
         """
-        Execute the full reporting pipeline.
+        Execute the full reporting pipeline in three explicit phases:
+
+        **Phase 1 — Generate:** all controllers write markdown files and charts
+        from GitHub data.  No AI calls happen here.
+
+        **Phase 2 — AI analysis:** each controller appends Mistral-generated
+        sections to the files already on disk.  Only runs when
+        ``config.has_ai()`` is True.
+
+        **Phase 3 — Notifications:** Discord senders run last, after every file
+        is complete.  Only runs when ``config.has_discord()`` is True.
 
         Returns:
             Path to the output directory.
@@ -50,34 +60,82 @@ class ReportController(BaseController):
             print("No issues found. Exiting.")
             return self.config.output_dir
 
-        output_paths: list[str] = []
+        # ── Phase 1: Generate all reports ─────────────────────────────
+        print("\n── Fase 1: Gerando relatórios ──")
+        controllers: list = []
 
         if self.config.enable_organization_report:
-            path = OrganizationController(self.config, issues_df).run()
-            output_paths.append(path)
+            ctrl = OrganizationController(self.config, issues_df)
+            ctrl.run()
+            controllers.append(ctrl)
 
         if self.config.enable_repository_report:
-            path = RepositoryController(self.config, issues_df).run()
-            output_paths.append(path)
+            RepositoryController(self.config, issues_df).run()
 
         if self.config.enable_developer_report:
-            path = DeveloperController(self.config, issues_df).run()
-            output_paths.append(path)
+            ctrl = DeveloperController(self.config, issues_df)
+            ctrl.run()
+            controllers.append(ctrl)
 
         if self.config.enable_team_report:
-            path = TeamController(self.config, issues_df, members_df).run()
-            output_paths.append(path)
+            ctrl = TeamController(self.config, issues_df, members_df)
+            ctrl.run()
+            controllers.append(ctrl)
 
         if self.config.enable_collaboration_report:
-            path = CollaborationController(self.config, issues_df).run()
-            output_paths.append(path)
+            ctrl = CollaborationController(self.config, issues_df)
+            ctrl.run()
+            controllers.append(ctrl)
 
-        print(f"\nGenerated {len(output_paths)} report(s).")
+        print(f"\nFase 1 concluída — {len(controllers)} controller(s) executados.")
+
+        # ── Phase 2: AI analysis (append to generated files) ──────────
+        if self.config.has_ai():
+            print("\n── Fase 2: Análises por IA (Mistral) ──")
+            for ctrl in controllers:
+                if hasattr(ctrl, "run_ai"):
+                    ctrl.run_ai()
+            print("\nFase 2 concluída.")
+        else:
+            print("\n[Fase 2 ignorada — ENABLE_AI_SUMMARIES=false ou MISTRAL_API_KEY ausente]")
+
+        # ── Phase 3: Discord notifications ────────────────────────────
+        if self.config.has_discord():
+            print("\n── Fase 3: Enviando notificações Discord ──")
+            self._send_notifications()
+            print("\nFase 3 concluída.")
+        else:
+            print("\n[Fase 3 ignorada — ENABLE_DISCORD_NOTIFICATIONS=false ou token ausente]")
 
         if self.config.commit_reports:
             self._commit_reports()
 
         return self.config.output_dir
+
+    # ------------------------------------------------------------------
+    # Phase 3 — notifications
+    # ------------------------------------------------------------------
+
+    def _send_notifications(self) -> None:
+        """Send all enabled Discord notifications (called from phase 3)."""
+        from reportfy.notifications.senders import (
+            DeveloperMessageSender,
+            CompetenceMessageSender,
+            TeamWeeklySender,
+            TeamsGeneralSender,
+            ProjectMessageSender,
+        )
+        # Individual developer DMs + competency
+        if self.config.enable_developer_report:
+            DeveloperMessageSender(self.config).send()
+            CompetenceMessageSender(self.config).send()
+        # Team weekly + executive summary
+        if self.config.enable_team_report:
+            TeamWeeklySender(self.config).send()
+            TeamsGeneralSender(self.config).send()
+        # Project status to leadership channel
+        if self.config.enable_organization_report:
+            ProjectMessageSender(self.config).send()
 
     # ------------------------------------------------------------------
     # Git commit

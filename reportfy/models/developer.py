@@ -7,6 +7,7 @@ from typing import Optional
 import pandas as pd
 
 from reportfy.models.issue import IssueModel
+from reportfy.utils.periods import apply_half_month
 
 
 @dataclass
@@ -108,8 +109,8 @@ class DeveloperModel:
         df = pd.DataFrame(rows)
         df["created_at"] = pd.to_datetime(df["created_at"])
         df["closed_at"] = pd.to_datetime(df["closed_at"], errors="coerce")
-        df["created_period"] = df["created_at"].dt.to_period("2W").dt.start_time
-        df["closed_period"] = df["closed_at"].dt.to_period("2W").dt.start_time
+        df["created_period"] = apply_half_month(df["created_at"])
+        df["closed_period"] = apply_half_month(df["closed_at"])
 
         created_counts = df.groupby("created_period").size().rename("Prometido (Criadas)")
         closed_df = df.dropna(subset=["closed_period"])

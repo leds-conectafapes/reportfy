@@ -3,6 +3,13 @@ import argparse
 import os
 import sys
 
+# Load .env file if present (local development)
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except ImportError:
+    pass
+
 from reportfy.core.config import ReportConfig
 
 

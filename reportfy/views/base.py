@@ -60,6 +60,44 @@ class BaseView(ABC):
         return path
 
     @staticmethod
+    def _format_period(period) -> str:
+        """
+        Format a period value (Timestamp, datetime, or Period) as ``YYYY-MM-DD``.
+
+        Provides a single, consistent rendering for all period-index types used
+        across views, avoiding repeated ``if hasattr(d, 'strftime')`` guards.
+
+        Args:
+            period: Any date-like object or string.
+
+        Returns:
+            ISO date string ``YYYY-MM-DD``.
+        """
+        if hasattr(period, "strftime"):
+            return period.strftime("%Y-%m-%d")
+        if hasattr(period, "start_time"):
+            return period.start_time.strftime("%Y-%m-%d")
+        return str(period)
+
+    @staticmethod
+    def _md_table(headers: list[str], rows: list[list]) -> str:
+        """
+        Build a simple markdown table from headers and rows.
+
+        Args:
+            headers: Column header strings.
+            rows: Each inner list represents one row; values are stringified.
+
+        Returns:
+            Markdown table string with a trailing newline.
+        """
+        sep = "|".join("---" for _ in headers)
+        lines = ["| " + " | ".join(headers) + " |", f"|{sep}|"]
+        for row in rows:
+            lines.append("| " + " | ".join(str(v) for v in row) + " |")
+        return "\n".join(lines) + "\n\n"
+
+    @staticmethod
     def _monte_carlo_explanation() -> str:
         """Return a standard markdown table explaining Monte Carlo concepts."""
         return (
