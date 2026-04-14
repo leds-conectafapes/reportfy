@@ -187,15 +187,111 @@ All biweekly metrics always use fixed half-month windows:
 
 ## GitHub Action
 
-Add to any workflow to generate and commit reports on a schedule:
+Reportfy ships as a Docker-based GitHub Action. The easiest way to use it is to add a workflow file to any repository — no Python setup required.
+
+### Step 1 — Create a GitHub PAT
+
+Go to **GitHub → Settings → Developer settings → Personal access tokens → Fine-grained tokens** and create a token with:
+
+- **Repository access:** All repositories (or select specific ones)
+- **Permissions:**
+  - `Issues` → Read-only
+  - `Metadata` → Read-only
+  - `Members` → Read-only (org level, required for team reports)
+
+> Classic tokens: enable `repo` and `read:org` scopes.
+
+### Step 2 — Add secrets to your repository
+
+Go to **Settings → Secrets and variables → Actions → New repository secret** and add:
+
+| Secret | When needed |
+|--------|-------------|
+| `TOKEN` | Always — GitHub PAT from Step 1 |
+| `MISTRAL_API_KEY` | Only if using AI summaries |
+| `DISCORD_BOT_TOKEN` | Only if using Discord notifications |
+
+### Step 3 — Create the workflow file
+
+Create `.github/workflows/reportfy.yml` in the repository where you want reports committed.
+
+#### Minimal — generate and commit reports weekly
 
 ```yaml
-# .github/workflows/report.yml
+# .github/workflows/reportfy.yml
 name: Weekly Report
 
 on:
   schedule:
     - cron: "0 8 * * 1"   # Every Monday at 08:00 UTC
+  workflow_dispatch:       # Allow manual trigger from the Actions tab
+
+jobs:
+  report:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write      # Required to commit reports back to the repo
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: leds-conectafapes/reportfy@v0.1.0
+        with:
+          github_token: ${{ secrets.TOKEN }}
+          repository: ${{ github.repository }}   # owner/repo of this repo
+```
+
+Reports are written to `./report/` and automatically committed with the message `chore(reports): auto-generate weekly reports [skip ci]`.
+
+#### With AI summaries (Mistral)
+
+```yaml
+      - uses: leds-conectafapes/reportfy@v0.1.0
+        with:
+          github_token: ${{ secrets.TOKEN }}
+          repository: ${{ github.repository }}
+          mistral_api_key: ${{ secrets.MISTRAL_API_KEY }}
+          mistral_model: "mistral-large-latest"   # or mistral-small-latest
+          enable_ai_summaries: "true"
+```
+
+This generates separate `{login}_feedback.md` and `{team}_feedback.md` files with AI-written performance analysis, monthly competency evolution, and team maturity assessments.
+
+#### Scanning an entire organization
+
+Use `owner/*` as the repository to include all repositories in the organization:
+
+```yaml
+      - uses: leds-conectafapes/reportfy@v0.1.0
+        with:
+          github_token: ${{ secrets.TOKEN }}
+          repository: "leds-conectafapes/*"
+```
+
+#### With Discord notifications
+
+First, create a `developers.json` file at the root of the repository (see [developers.json](#developersjson)), then:
+
+```yaml
+      - uses: leds-conectafapes/reportfy@v0.1.0
+        with:
+          github_token: ${{ secrets.TOKEN }}
+          repository: ${{ github.repository }}
+          discord_bot_token: ${{ secrets.DISCORD_BOT_TOKEN }}
+          discord_leadership_channel: "leadership"
+          developers_config: "./developers.json"
+          enable_discord_notifications: "true"
+```
+
+#### Complete example — all features enabled
+
+```yaml
+# .github/workflows/reportfy.yml
+name: Weekly Report
+
+on:
+  schedule:
+    - cron: "0 8 * * 1"
   workflow_dispatch:
 
 jobs:
@@ -210,23 +306,35 @@ jobs:
       - uses: leds-conectafapes/reportfy@v0.1.0
         with:
           github_token: ${{ secrets.TOKEN }}
-          repository: ${{ github.repository }}
+          repository: "leds-conectafapes/*"
+          report_output_dir: "./report"
+          monte_carlo_simulations: "1000"
+          mistral_api_key: ${{ secrets.MISTRAL_API_KEY }}
+          mistral_model: "mistral-large-latest"
+          discord_bot_token: ${{ secrets.DISCORD_BOT_TOKEN }}
+          discord_leadership_channel: "leadership"
+          developers_config: "./developers.json"
+          enable_organization_report: "true"
+          enable_repository_report: "true"
+          enable_developer_report: "true"
+          enable_team_report: "true"
+          enable_collaboration_report: "true"
+          enable_ai_summaries: "true"
+          enable_discord_notifications: "true"
+          commit_reports: "true"
 ```
 
-### With AI and Discord
+#### Disabling specific reports
+
+Use the `enable_*` flags to skip reports you don't need:
 
 ```yaml
       - uses: leds-conectafapes/reportfy@v0.1.0
         with:
           github_token: ${{ secrets.TOKEN }}
-          repository: "owner/*"            # all org repos
-          mistral_api_key: ${{ secrets.MISTRAL_API_KEY }}
-          mistral_model: "mistral-large-latest"
-          discord_bot_token: ${{ secrets.DISCORD_BOT_TOKEN }}
-          discord_leadership_channel: "leadership"
-          enable_ai_summaries: "true"
-          enable_discord_notifications: "true"
-          commit_reports: "true"
+          repository: ${{ github.repository }}
+          enable_repository_report: "false"    # skip per-repo dashboards
+          enable_collaboration_report: "false" # skip network analysis
 ```
 
 ### Action Inputs
@@ -234,24 +342,43 @@ jobs:
 | Input | Required | Default | Description |
 |-------|----------|---------|-------------|
 | `github_token` | Yes | — | GitHub PAT with `repo` + `read:org` scopes |
-| `repository` | Yes | — | `owner/repo` or `owner/*` |
-| `report_output_dir` | No | `./report` | Output directory |
-| `monte_carlo_simulations` | No | `1000` | Simulation iterations |
-| `mistral_api_key` | No | `""` | Mistral AI key |
-| `mistral_model` | No | `mistral-large-latest` | Mistral model |
-| `discord_bot_token` | No | `""` | Discord bot token |
-| `discord_leadership_channel` | No | `""` | Leadership channel name |
-| `developers_config` | No | `./developers.json` | Path to GitHub→Discord mapping |
-| `enable_organization_report` | No | `true` | Generate org dashboard |
-| `enable_repository_report` | No | `true` | Generate repo dashboards |
-| `enable_developer_report` | No | `true` | Generate developer dashboards |
-| `enable_team_report` | No | `true` | Generate team dashboards |
-| `enable_collaboration_report` | No | `true` | Generate collaboration network |
-| `enable_ai_summaries` | No | `false` | Enable Mistral AI analysis |
-| `enable_discord_notifications` | No | `false` | Enable Discord notifications |
-| `commit_reports` | No | `true` | Auto-commit reports to git |
+| `repository` | Yes | — | `owner/repo` or `owner/*` for all org repos |
+| `report_output_dir` | No | `./report` | Directory where reports are written |
+| `monte_carlo_simulations` | No | `1000` | Simulation iterations for delivery forecasting |
+| `mistral_api_key` | No | `""` | Mistral API key — leave empty to disable AI |
+| `mistral_model` | No | `mistral-large-latest` | Mistral model identifier |
+| `discord_bot_token` | No | `""` | Discord bot token — leave empty to disable notifications |
+| `discord_leadership_channel` | No | `""` | Channel name for executive project summary |
+| `developers_config` | No | `./developers.json` | Path to GitHub→Discord ID mapping file |
+| `enable_organization_report` | No | `true` | Organization-level dashboard |
+| `enable_repository_report` | No | `true` | Per-repository dashboards |
+| `enable_developer_report` | No | `true` | Per-developer dashboards |
+| `enable_team_report` | No | `true` | Per-team dashboards |
+| `enable_collaboration_report` | No | `true` | Collaboration network analysis |
+| `enable_ai_summaries` | No | `false` | AI analysis via Mistral (requires `mistral_api_key`) |
+| `enable_discord_notifications` | No | `false` | Discord notifications (requires `discord_bot_token`) |
+| `commit_reports` | No | `true` | Auto-commit generated reports to git |
 
 ### Action Outputs
+
+Use outputs to reference generated files in subsequent steps:
+
+```yaml
+    steps:
+      - uses: actions/checkout@v4
+
+      - id: reportfy
+        uses: leds-conectafapes/reportfy@v0.1.0
+        with:
+          github_token: ${{ secrets.TOKEN }}
+          repository: ${{ github.repository }}
+
+      - name: Upload reports as artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: reports
+          path: ${{ steps.reportfy.outputs.organization_report }}
+```
 
 | Output | Description |
 |--------|-------------|
